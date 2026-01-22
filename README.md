@@ -1,66 +1,85 @@
-# Mi TFG: Despliegue de Infraestructura Segura y Automatizada
+# ☁️ Azure Cloud Architecture: High Availability & Secure Deployment (TFG)
 
-Este es el repositorio de mi Trabajo de Fin de Grado. Mi objetivo ha sido diseñar y montar una infraestructura en Azure que no solo sea automática, sino que sea segura por diseño. Para ello, he aplicado políticas de **Hardening** y he utilizado el paradigma de **Infraestructura como Código (IaC)** para que todo el entorno sea reproducible y fácil de auditar.
+[![Terraform](https://img.shields.io/badge/Infrastructure-Terraform-623CE4?logo=terraform)](https://www.terraform.io/)
+[![Ansible](https://img.shields.io/badge/Config-Ansible-EE0000?logo=ansible)](https://www.ansible.com/)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker)](https://www.docker.com/)
+[![Azure](https://img.shields.io/badge/Cloud-Azure-0078D4?logo=microsoftazure)](https://azure.microsoft.com/)
 
-### ¿Cómo está montado esto?
-El proyecto se divide principalmente en dos partes:
-1.  **Aprovisionamiento:** Uso **Terraform** para levantar toda la base (redes, firewalls, instancias, etc.) de forma controlada.
-2.  **Configuración y Seguridad:** Uso **Ansible** para gestionar los servidores, instalar los servicios y aplicar las medidas de seguridad necesarias.
-
-Todo el flujo de trabajo y el despliegue continuo lo gestiono a través de **Azure DevOps**.
+Este repositorio contiene el **despliegue automatizado** de una infraestructura web en **Alta Disponibilidad** sobre **Microsoft Azure**. El proyecto aplica el paradigma de **Infraestructura como Código (IaC)** y principios de **hardening** para garantizar un entorno **seguro, escalable y reproducible**.
 
 ---
 
-## Notas para el despliegue (Setup local)
+## 🏗️ Arquitectura del Proyecto
 
-Ojo: por seguridad, he ignorado los archivos que contienen claves o IPs reales en el `.gitignore`. Si quieres replicar el despliegue, tendrás que crear estos archivos en tu máquina:
+La solución se basa en una **arquitectura de tres capas** diseñada para eliminar puntos únicos de fallo (SPOF):
 
-Ojo: por seguridad, he ignorado los archivos que contienen claves o IPs reales en el `.gitignore`. Si quieres replicar el despliegue, tendrás que configurar esto localmente:
+* **Capa de Acceso (Networking):** Un **Azure Load Balancer** distribuye el tráfico **HTTPS** de forma equitativa entre los nodos.
+* **Capa de Aplicación (Compute):** Dos máquinas virtuales **Ubuntu 22.04** ejecutan **Docker** y están orquestadas con **Docker Compose**. Cada nodo cuenta con **Nginx** como *reverse proxy* y **WordPress** como aplicación.
+* **Capa de Datos (PaaS):** Servicio gestionado **Azure Database for MySQL (Flexible Server)**, que aporta **persistencia**, **alta disponibilidad del servicio** y **copias de seguridad automáticas**.
 
-### 1. Terraform (`terraform/terraform.tfvars`)
-Crea un archivo `terraform.tfvars` con tus datos:
+---
+
+## 🛠️ Stack Tecnológico
+
+| Herramienta        | Función                                                                                      |
+| ------------------ | -------------------------------------------------------------------------------------------- |
+| **Terraform**      | Aprovisionamiento de red (VNET, subnets, NSG), máquinas virtuales y base de datos.           |
+| **Ansible**        | Automatización de la configuración, hardening del sistema operativo e instalación de Docker. |
+| **Docker Compose** | Orquestación de contenedores (WordPress + Nginx).                                            |
+| **Azure DevOps**   | Gestión del ciclo de vida del proyecto y *pipelines* de despliegue (CI/CD).                  |
+
+---
+
+## 🔒 Seguridad (Hardening por Diseño)
+
+Para cumplir con los requisitos de seguridad del TFG, se han implementado las siguientes medidas:
+
+1. **Gestión de secretos:** Uso de variables de entorno y archivos `.env` (excluidos del control de versiones) para evitar *hardcoded secrets*.
+2. **Conexiones cifradas:** Comunicación obligatoria mediante **SSL/TLS** tanto en el acceso web (Nginx) como en la conexión con **Azure Database for MySQL**.
+3. **Principio de mínimo privilegio:** **Network Security Groups (NSG)** configurados para permitir únicamente el tráfico necesario (**80**, **443** y **22**).
+
+---
+
+## 🚀 Guía de Despliegue
+
+Por motivos de seguridad, los archivos con credenciales reales están excluidos del repositorio. Para replicar el entorno, sigue los pasos siguientes.
+
+### 1. Preparación de Terraform
+
+Crea el archivo `terraform/terraform.tfvars` con la configuración básica:
+
 ```hcl
-admin_username = "tu_usuario"
-ssh_public_key = "tu_clave_publica_ssh"
-location       = "West Europe"
+admin_username = "azureuser"
+ssh_public_key = "ssh-rsa AAAAB3Nza..."
+location       = "France Central"
 ```
 
-### 2. Acceso SSH
-Asegúrate de tener un par de claves SSH generadas. La clave pública se usará en Terraform para el acceso a las instancias, y la clave privada será necesaria para que Ansible pueda conectarse y configurar los nodos.
+### 2. Configuración de Ansible
 
-### 3. Inventario de Ansible
-Configura el archivo `inventory.ini` o similar con las direcciones IP generadas por Terraform:
-```ini
-[webservers]
-10.0.1.4 ansible_user=tu_usuario ansible_ssh_private_key_file=~/.ssh/id_rsa
-```
-Crea un archivo `.env` en la carpeta `ansible/deploy/` para las credenciales de Docker:
+Crea un archivo `.env` en `ansible/deploy/` basándote en la siguiente estructura:
+
 ```env
-MYSQL_ROOT_PASSWORD=tu_contraseña_maestra
-WORDPRESS_DB_HOST=tu_host_de_base_de_datos
-WORDPRESS_DB_USER=tu_usuario_db
-WORDPRESS_DB_PASSWORD=tu_contraseña_db
-WORDPRESS_DB_NAME=nombre_de_tu_db
-
-## Despliegue
-
-### Paso 1: Infraestructura
-Navega al directorio de Terraform e inicializa el entorno:
-```bash
-terraform init
-terraform plan
-terraform apply
+DB_HOST=tu-servidor-mysql.mysql.database.azure.com
+DB_USER=micky_admin
+DB_PASSWORD=TuPasswordSeguro
+DB_NAME=wordpress_db
 ```
 
-### Paso 2: Configuración
-Una vez levantada la infraestructura, ejecuta los playbooks de Ansible:
+> ⚠️ **Nota:** Asegúrate de que este archivo esté incluido en `.gitignore`.
+
+### 3. Ejecución del Despliegue
+
+Lanza el *playbook* para configurar los nodos y levantar los contenedores:
+
 ```bash
-ansible-playbook -i inventory.ini site.yml
+cd ansible
+ansible-playbook -i inventory/hosts.ini site.yml
 ```
 
-## Validación y Tests
-*   **Terraform:** Ejecuta `terraform validate` para comprobar la sintaxis.
-*   **Ansible:** Ejecuta `ansible-playbook --syntax-check` para validar los archivos YAML.
+Al finalizar el proceso, la aplicación estará disponible a través de la **IP pública del Azure Load Balancer**.
 
 ---
-*Este proyecto ha sido desarrollado como parte de un entorno académico para el Trabajo de Fin de Grado.*
+
+## 📌 Estado del Proyecto
+
+Proyecto desarrollado como **Trabajo de Fin de Grado (TFG)**, enfocado en **cloud computing**, **automatización** y **seguridad en infraestructuras**.
