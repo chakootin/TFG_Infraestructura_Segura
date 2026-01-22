@@ -1,0 +1,33 @@
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress-wordpress-1
+    restart: always
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wp-config.php:/var/www/html/wp-config.php
+      - ./certs/DigiCertGlobalRootG2.crt.pem:/etc/ssl/certs/azure-db-ssl.crt.pem
+    environment:
+      # Mapeo de variables desde el archivo .env
+      WORDPRESS_DB_HOST: tfg-mysql-micky.mysql.database.azure.com
+      WORDPRESS_DB_USER: micky_admin
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WORDPRESS_DB_NAME: wordpress_db
+
+  nginx:
+    depends_on:
+      - wordpress
+    image: nginx:1.27-alpine
+    container_name: wordpress-nginx-1
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs/server.crt:/etc/nginx/certs/server.crt:ro
+      - ./certs/server.key:/etc/nginx/certs/server.key:ro
+      - wordpress_data:/var/www/html
+
+volumes:
+  wordpress_data:
