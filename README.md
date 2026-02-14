@@ -8,7 +8,7 @@
 Este repositorio contiene el **despliegue automatizado** de una infraestructura web en **Alta Disponibilidad** sobre **Microsoft Azure**. El proyecto aplica el paradigma de **Infraestructura como Código (IaC)** y principios de **hardening** para garantizar un entorno **seguro, escalable y reproducible**.
 ![Status](https://img.shields.io/badge/status-en%20desarrollo-yellow)
 
-## 🚧 Proyecto en construcción
+## 🚧 Proyecto en construcción.
 
 Pendiente de implementación:
 - Azure Pipeline
