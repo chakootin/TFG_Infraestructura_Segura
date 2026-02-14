@@ -1,0 +1,82 @@
+---
+- name: Configuración del Servidor y Despliegue de WordPress
+  hosts: wordpress_servers
+  become: true
+
+  tasks:
+    - name: Esperar a que el servidor responda por SSH
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 300
+
+    - name: Limpieza total de residuos de Docker/Containerd
+      ansible.builtin.apt:
+        name:
+          - docker
+          - docker-engine
+          - docker.io
+          - containerd
+          - runc
+          - containerd.io
+        state: absent
+        purge: true
+
+    - name: Eliminar directorios y sockets residuales
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/docker
+        - /var/lib/docker
+        - /var/run/docker.sock
+        - /var/run/docker.pid
+
+    - name: Actualizar e instalar dependencias y Docker
+      ansible.builtin.apt:
+        name:
+          - iptables
+          - ca-certificates
+          - docker.io
+          - docker-compose
+        state: present
+        update_cache: true
+
+    - name: Resetear fallos y asegurar que el socket esté activo
+      ansible.builtin.systemd:
+        name: docker.socket
+        state: restarted
+        enabled: true
+
+    - name: Iniciar el servicio de Docker
+      ansible.builtin.systemd:
+        name: docker
+        state: started
+        enabled: true
+        daemon_reload: true
+
+    - name: Esperar a que el socket de Docker responda
+      ansible.builtin.wait_for:
+        path: /var/run/docker.sock
+        state: present
+        timeout: 30
+
+    - name: Crear directorio de despliegue
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/wordpress_deploy"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+
+    - name: Copiar archivos de despliegue
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/deploy/"
+        dest: "/home/{{ ansible_user }}/wordpress_deploy/"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+
+    - name: Lanzar el stack con Docker Compose
+      ansible.builtin.shell: docker-compose up -d
+      args:
+        chdir: "/home/{{ ansible_user }}/wordpress_deploy/"
